@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>OpenRouter Spend</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="page">
+    <section class="chart-card" aria-labelledby="chartTitle">
+      <header class="chart-topbar">
+        <div class="chart-heading">
+          <div class="heading-meta">
+            <span id="rangeLabel" class="eyebrow">LAST 14 DAYS</span>
+
+            <span id="connectionStatus" class="connection-status demo">
+              <span class="connection-dot"></span>
+              <span id="connectionText">DEMO</span>
+            </span>
+          </div>
+
+          <h1 id="chartTitle">Daily spending</h1>
+          <p id="chartSubtitle">Fixed $2.00 allowance per day</p>
+        </div>
+
+        <div class="chart-actions">
+          <div class="action-row">
+            <div class="mode-switch" aria-label="Chart mode">
+              <button
+                id="dailyMode"
+                class="mode-button active"
+                type="button"
+                aria-pressed="true"
+              >
+                Daily
+              </button>
+
+              <button
+                id="compoundMode"
+                class="mode-button"
+                type="button"
+                aria-pressed="false"
+              >
+                Compound
+              </button>
+            </div>
+
+            <button
+              id="refreshButton"
+              class="refresh-button"
+              type="button"
+              title="Refresh OpenRouter usage"
+              aria-label="Refresh OpenRouter usage"
+            >
+              <span aria-hidden="true">↻</span>
+            </button>
+          </div>
+
+          <div class="legend" aria-label="Chart legend">
+            <div class="legend-item">
+              <span class="legend-box spending"></span>
+              <span>Spending</span>
+            </div>
+
+            <div class="legend-item">
+              <span class="legend-box warning"></span>
+              <span>Near limit</span>
+            </div>
+
+            <div class="legend-item">
+              <span class="legend-box over"></span>
+              <span>Over</span>
+            </div>
+
+            <div class="legend-item">
+              <span class="legend-line"></span>
+              <span id="legendLineText">Daily limit</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="chart-wrap">
+        <canvas
+          id="spendingChart"
+          role="img"
+          aria-label="OpenRouter daily spending graph"
+        ></canvas>
+
+        <div id="tooltip" class="tooltip" role="status" aria-live="polite"></div>
+
+        <div id="emptyState" class="empty-state" hidden>
+          <strong>No usage data</strong>
+          <span>OpenRouter returned no spending rows for this period.</span>
+        </div>
+      </div>
+
+      <footer class="chart-footer">
+        <div class="footer-stat">
+          <span class="footer-label">AVERAGE</span>
+          <strong id="avgValue">$0.00</strong>
+          <small id="avgDetail">per day</small>
+        </div>
+
+        <div class="footer-stat">
+          <span id="secondaryLabel" class="footer-label">HIGHEST</span>
+          <strong id="secondaryValue">$0.00</strong>
+          <small id="secondaryDetail">peak day</small>
+        </div>
+
+        <div class="footer-stat">
+          <span class="footer-label">TOTAL</span>
+          <strong id="totalValue">$0.00</strong>
+          <small id="totalDetail">14-day spend</small>
+        </div>
+
+        <div class="footer-stat">
+          <span class="footer-label">OVER LIMIT</span>
+          <strong id="overValue">0 days</strong>
+          <small id="overDetail">daily mode</small>
+        </div>
+
+        <div class="footer-stat footer-stat-current">
+          <span class="footer-label">TODAY</span>
+          <strong id="todayValue">$0.00</strong>
+          <small id="todayDetail">$0.00 available</small>
+        </div>
+      </footer>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
