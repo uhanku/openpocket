@@ -88,7 +88,6 @@ Then edit `.env`:
 ```env
 OPENROUTER_MANAGEMENT_KEY=your_management_key_here
 DAILY_LIMIT=0.67
-DISPLAY_DAYS=14
 ```
 
 ### Environment Variables
@@ -97,7 +96,8 @@ DISPLAY_DAYS=14
 | --------------------------- | -------------------------------------------------------- |
 | `OPENROUTER_MANAGEMENT_KEY` | OpenRouter Management Key used to retrieve spending data |
 | `DAILY_LIMIT`               | Base daily spending allowance                            |
-| `DISPLAY_DAYS`              | Number of days shown in the graph                        |
+
+The graph always shows the full current calendar month, from day 1 through the last day of the month.
 
 The OpenRouter Management Key is used only by the **Rust backend** and is not embedded in the frontend JavaScript.
 

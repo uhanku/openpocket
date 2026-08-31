@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDate, Utc};
+use chrono::{Datelike, Duration, NaiveDate, Utc};
 use reqwest::Client;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -13,15 +13,23 @@ pub struct SpendDay {
     pub spent: f64,
 }
 
-pub async fn fetch_daily_spend(
-    api_key: &str,
-    days: u32,
-) -> Result<Vec<SpendDay>, String> {
+pub async fn fetch_daily_spend(api_key: &str) -> Result<Vec<SpendDay>, String> {
     let today = Utc::now().date_naive();
 
-    // End is tomorrow at 00:00 UTC so the current UTC day is included.
-    let end_date = today + Duration::days(1);
-    let start_date = end_date - Duration::days(days as i64);
+    // Show the full current calendar month: day 1 through the last day.
+    // The end date is the first day of the following month (exclusive),
+    // which automatically handles December to January rollover.
+    let start_date =
+        NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
+    let next_month = if today.month() == 12 {
+        NaiveDate::from_ymd_opt(today.year() + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(today.year(), today.month() + 1, 1)
+    }
+    .unwrap_or(start_date + Duration::days(31));
+
+    let end_date = next_month;
+    let days = (end_date - start_date).num_days() as u32;
 
     let body = json!({
         "metrics": ["total_usage"],

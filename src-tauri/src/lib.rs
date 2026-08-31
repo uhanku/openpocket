@@ -8,7 +8,6 @@ use tauri::Manager;
 #[serde(rename_all = "camelCase")]
 struct AppConfig {
     daily_limit: f64,
-    display_days: u32,
     has_api_key: bool,
 }
 
@@ -24,14 +23,6 @@ fn configured_daily_limit() -> f64 {
         .and_then(|value| value.parse::<f64>().ok())
         .filter(|value| value.is_finite() && *value > 0.0)
         .unwrap_or(0.67)
-}
-
-fn configured_display_days() -> u32 {
-    env::var("DISPLAY_DAYS")
-        .ok()
-        .and_then(|value| value.parse::<u32>().ok())
-        .map(|value| value.clamp(1, 366))
-        .unwrap_or(14)
 }
 
 fn openrouter_key() -> Result<String, String> {
@@ -53,21 +44,17 @@ fn get_app_config() -> AppConfig {
 
     AppConfig {
         daily_limit: configured_daily_limit(),
-        display_days: configured_display_days(),
         has_api_key: openrouter_key().is_ok(),
     }
 }
 
 #[tauri::command]
-async fn get_usage(days: Option<u32>) -> Result<Vec<openrouter::SpendDay>, String> {
+async fn get_usage() -> Result<Vec<openrouter::SpendDay>, String> {
     load_dotenv();
 
     let key = openrouter_key()?;
-    let days = days
-        .unwrap_or_else(configured_display_days)
-        .clamp(1, 366);
 
-    openrouter::fetch_daily_spend(&key, days).await
+    openrouter::fetch_daily_spend(&key).await
 }
 
 #[cfg(target_os = "windows")]

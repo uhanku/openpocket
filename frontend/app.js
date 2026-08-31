@@ -1,24 +1,34 @@
 (() => {
-const MOCK_DATA = [
-  { date: "2026-08-15", spent: 1.20 },
-  { date: "2026-08-16", spent: 0.75 },
-  { date: "2026-08-17", spent: 2.30 },
-  { date: "2026-08-18", spent: 1.10 },
-  { date: "2026-08-19", spent: 0.45 },
-  { date: "2026-08-20", spent: 1.80 },
-  { date: "2026-08-21", spent: 2.70 },
-  { date: "2026-08-22", spent: 0.90 },
-  { date: "2026-08-23", spent: 1.35 },
-  { date: "2026-08-24", spent: 0.55 },
-  { date: "2026-08-25", spent: 3.10 },
-  { date: "2026-08-26", spent: 0.80 },
-  { date: "2026-08-27", spent: 1.15 },
-  { date: "2026-08-28", spent: 2.45 }
-];
+function buildMockData() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const daysInMonth = new Date(
+    Date.UTC(year, month + 1, 0)
+  ).getUTCDate();
+
+  const rows = [];
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const pattern = Math.sin(day * 2.4);
+    const spent = Math.max(
+      0.05,
+      Number((0.35 + pattern * 0.85 + (day % 5) * 0.12).toFixed(2))
+    );
+
+    rows.push({
+      date: `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+      spent
+    });
+  }
+
+  return rows;
+}
+
+const MOCK_DATA = buildMockData();
 
 let spendingData = [...MOCK_DATA];
 let dailyLimit = 0.67;
-let displayDays = 14;
 let currentMode = "daily";
 let chartPoints = [];
 let hoveredIndex = -1;
@@ -83,12 +93,35 @@ function formatDay(isoDate) {
   }).format(date);
 }
 
+function formatMonth(isoDate) {
+  if (typeof isoDate !== "string") {
+    return "";
+  }
+
+  const parts = isoDate.split("-");
+
+  if (parts.length !== 3) {
+    return isoDate;
+  }
+
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+
+  const date = new Date(Date.UTC(year, month - 1, 1));
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date);
+}
+
 function sanitizeRows(rows) {
   if (!Array.isArray(rows)) {
     return [];
   }
 
-  return rows
+  const sanitized = rows
     .map((row) => ({
       date: String(row?.date ?? ""),
       spent: Math.max(0, Number(row?.spent ?? 0))
@@ -98,8 +131,15 @@ function sanitizeRows(rows) {
         /^\d{4}-\d{2}-\d{2}$/.test(row.date) &&
         Number.isFinite(row.spent)
     )
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-Math.max(1, Math.min(displayDays, 366)));
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (sanitized.length === 0) {
+    return [];
+  }
+
+  const monthPrefix = sanitized[sanitized.length - 1].date.slice(0, 7);
+
+  return sanitized.filter((row) => row.date.startsWith(monthPrefix));
 }
 
 function getDailyData() {
@@ -149,9 +189,10 @@ function setConnectionStatus(status, text) {
 
 function updateMeta() {
   const data = getData();
+  const lastDate = data[data.length - 1]?.date;
 
   document.getElementById("rangeLabel").textContent =
-    `LAST ${spendingData.length || displayDays} DAYS`;
+    formatMonth(lastDate) || "CURRENT MONTH";
 
   emptyState.hidden = data.length > 0;
 
@@ -688,20 +729,12 @@ async function loadConfig() {
       await window.__TAURI__.core.invoke("get_app_config");
 
     const configuredLimit = Number(config?.dailyLimit);
-    const configuredDays = Number(config?.displayDays);
 
     if (
       Number.isFinite(configuredLimit) &&
       configuredLimit > 0
     ) {
       dailyLimit = configuredLimit;
-    }
-
-    if (
-      Number.isInteger(configuredDays) &&
-      configuredDays >= 1
-    ) {
-      displayDays = Math.min(configuredDays, 366);
     }
 
     if (!config?.hasApiKey) {
@@ -726,10 +759,7 @@ async function refreshUsage() {
     }
 
     const rows =
-      await window.__TAURI__.core.invoke(
-        "get_usage",
-        { days: displayDays }
-      );
+      await window.__TAURI__.core.invoke("get_usage");
 
     const sanitized = sanitizeRows(rows);
 
@@ -743,8 +773,7 @@ async function refreshUsage() {
   } catch (error) {
     console.error("OpenRouter usage refresh failed:", error);
 
-    spendingData = sanitizeRows(MOCK_DATA)
-      .slice(-displayDays);
+    spendingData = sanitizeRows(MOCK_DATA);
 
     const message = String(error || "");
 
