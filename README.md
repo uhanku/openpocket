@@ -1,61 +1,86 @@
-# OpenRouter Spend — Tauri
+# OpenPocket
 
-A small Tauri v2 desktop app written with:
+A lightweight desktop app for tracking **OpenRouter spending** against a configurable daily budget.
 
-- Rust backend
+Built with:
+
+- Rust
 - Tauri v2
-- Vanilla HTML/CSS/JavaScript
+- Vanilla HTML, CSS, and JavaScript
 - OpenRouter Analytics API
 
-The app has two graph modes:
+## Platform Support
 
-- **Daily** — every day uses the same fixed allowance.
-- **Compound** — unused allowance carries into the next day. Overspending resets the carry to zero instead of creating debt.
+| Platform       | Status        |
+| -------------- | ------------- |
+| 🪟 **Windows** | ✅ Working    |
+| 🐧 **Linux**   | ⚠️ Not tested |
+| 🍎 **macOS**   | ⚠️ Not tested |
 
-## Project structure
+## Features
+
+OpenPocket provides two spending modes:
+
+### Daily
+
+Each day uses the same fixed allowance.
+
+For example, with a daily limit of `$0.67`, every day starts with `$0.67` available regardless of previous spending.
+
+### Compound
+
+Unused allowance carries over into the next day.
 
 ```text
-openrouter-spend-tauri/
-├── frontend/
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
-├── src-tauri/
-│   ├── capabilities/
-│   │   └── default.json
-│   ├── icons/
-│   │   ├── icon.png
-│   │   └── icon.ico
-│   ├── src/
-│   │   ├── lib.rs
-│   │   ├── main.rs
-│   │   └── openrouter.rs
-│   ├── build.rs
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── .env.example
-├── .gitignore
-├── package.json
-└── README.md
+available = daily_limit + previous_remaining
+remaining = max(available - spent, 0)
 ```
 
-## 1. Requirements
+Overspending does **not** create debt.
 
-Install:
+For example:
 
-- Node.js
-- Rust
-- the platform dependencies required by Tauri v2
+```text
+Daily limit:          $0.67
+Previous remaining:   $2.33
 
-Tauri's prerequisites:
+Available:            $3.00
+Spent:                $3.50
+Remaining:            $0.00
+
+Next day available:   $0.67
+```
+
+If spending exceeds the available amount, the carry-over resets to zero and the next day starts with the normal daily allowance.
+
+> The compound calculation begins from the first day in the currently loaded display window.
+
+## Requirements
+
+Before running the project, install:
+
+- [Node.js](https://nodejs.org/)
+- [Rust](https://www.rust-lang.org/tools/install)
+- The platform-specific dependencies required by Tauri v2
+
+See the official Tauri prerequisites guide:
+
 https://v2.tauri.app/start/prerequisites/
 
-## 2. Configure OpenRouter
+## Configuration
 
-Copy:
+Create a local environment file from the provided example.
+
+### Linux / macOS
 
 ```bash
 cp .env.example .env
+```
+
+### Windows PowerShell
+
+```powershell
+Copy-Item .env.example .env
 ```
 
 Then edit `.env`:
@@ -66,50 +91,68 @@ DAILY_LIMIT=0.67
 DISPLAY_DAYS=14
 ```
 
-The Management Key is used only by the Rust backend. It is not embedded in the frontend JavaScript.
+### Environment Variables
 
-## 3. Run
+| Variable                    | Description                                              |
+| --------------------------- | -------------------------------------------------------- |
+| `OPENROUTER_MANAGEMENT_KEY` | OpenRouter Management Key used to retrieve spending data |
+| `DAILY_LIMIT`               | Base daily spending allowance                            |
+| `DISPLAY_DAYS`              | Number of days shown in the graph                        |
+
+The OpenRouter Management Key is used only by the **Rust backend** and is not embedded in the frontend JavaScript.
+
+## Running in Development
+
+Install dependencies:
 
 ```bash
 npm install
+```
+
+Start the Tauri development app:
+
+```bash
 npm run dev
 ```
 
-## 4. Build the desktop application
+## Building the Desktop App
+
+Create a production build with:
 
 ```bash
 npm run build
 ```
 
-The generated application/bundles will be under:
+Compiled files will be generated under:
 
 ```text
 src-tauri/target/release/
 ```
 
-and the relevant `bundle/` directory for your operating system.
-
-## Demo fallback
-
-If no OpenRouter key is configured, the app still opens using demo spending data and shows a `DEMO` status in the chart header.
-
-## Compound calculation
-
-For each loaded day:
+Platform-specific installers and bundles can be found in the corresponding:
 
 ```text
-available = daily_limit + previous_remaining
-remaining = max(available - spent, 0)
+src-tauri/target/release/bundle/
 ```
 
-Overspending does not create debt:
+directory.
 
-```text
-available = $3.00
-spent     = $3.50
-remaining = $0.00
+## Demo Mode
 
-next day available = base daily limit
-```
+OpenPocket can run without an OpenRouter Management Key.
 
-The compound calculation begins at the first day in the currently loaded window.
+If `OPENROUTER_MANAGEMENT_KEY` is not configured, the application automatically loads demo spending data and displays a **DEMO** indicator in the chart header.
+
+This makes it possible to preview the application without connecting an OpenRouter account.
+
+## Security
+
+Your OpenRouter Management Key is handled by the Rust backend.
+
+It is **not exposed to the frontend JavaScript**, helping prevent accidental exposure through the webview.
+
+Do not commit your `.env` file or Management Key to source control.
+
+## License
+
+Add your project's license here if you plan to distribute or open-source the application.

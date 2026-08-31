@@ -9,7 +9,7 @@
 </head>
 <body>
   <main class="page">
-    <section id="chartCard" class="chart-card" aria-labelledby="chartTitle">
+    <section id="chartCard" class="chart-card">
       <header class="chart-topbar">
         <div class="chart-heading">
           <div class="heading-meta">
@@ -20,9 +20,6 @@
               <span id="connectionText">DEMO</span>
             </span>
           </div>
-
-          <h1 id="chartTitle">Daily spending</h1>
-          <p id="chartSubtitle">Fixed $0.67 allowance per day</p>
         </div>
 
         <div class="chart-actions">
@@ -96,40 +93,49 @@
           <span>OpenRouter returned no spending rows for this period.</span>
         </div>
       </div>
-
-      <footer class="chart-footer">
-        <div class="footer-stat">
-          <span class="footer-label">AVERAGE</span>
-          <strong id="avgValue">$0.00</strong>
-          <small id="avgDetail">per day</small>
-        </div>
-
-        <div class="footer-stat">
-          <span id="secondaryLabel" class="footer-label">HIGHEST</span>
-          <strong id="secondaryValue">$0.00</strong>
-          <small id="secondaryDetail">peak day</small>
-        </div>
-
-        <div class="footer-stat">
-          <span class="footer-label">TOTAL</span>
-          <strong id="totalValue">$0.00</strong>
-          <small id="totalDetail">14-day spend</small>
-        </div>
-
-        <div class="footer-stat">
-          <span class="footer-label">OVER LIMIT</span>
-          <strong id="overValue">0 days</strong>
-          <small id="overDetail">daily mode</small>
-        </div>
-
-        <div class="footer-stat footer-stat-current">
-          <span class="footer-label">TODAY</span>
-          <strong id="todayValue">$0.00</strong>
-          <small id="todayDetail">$0.00 available</small>
-        </div>
-      </footer>
     </section>
   </main>
+
+  <div
+    class="resize-handle resize-nw"
+    data-direction="NorthWest"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="resize-handle resize-n"
+    data-direction="North"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="resize-handle resize-ne"
+    data-direction="NorthEast"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="resize-handle resize-e"
+    data-direction="East"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="resize-handle resize-se"
+    data-direction="SouthEast"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="resize-handle resize-s"
+    data-direction="South"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="resize-handle resize-sw"
+    data-direction="SouthWest"
+    aria-hidden="true"
+  ></div>
+  <div
+    class="resize-handle resize-w"
+    data-direction="West"
+    aria-hidden="true"
+  ></div>
 
   <script src="app.js"></script>
 </body>

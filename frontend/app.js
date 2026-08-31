@@ -155,67 +155,12 @@ function updateMeta() {
 
   emptyState.hidden = data.length > 0;
 
-  if (data.length === 0) {
-    document.getElementById("avgValue").textContent = "$0.00";
-    document.getElementById("secondaryValue").textContent = "$0.00";
-    document.getElementById("totalValue").textContent = "$0.00";
-    document.getElementById("overValue").textContent = "0 days";
-    document.getElementById("todayValue").textContent = "$0.00";
-    document.getElementById("todayDetail").textContent =
-      `${money(dailyLimit)} available`;
-    return;
-  }
-
-  const total = data.reduce((sum, day) => sum + day.spent, 0);
-  const average = total / data.length;
-  const highest = Math.max(...data.map((day) => day.spent));
-  const daysOver = data.filter((day) => day.over).length;
-  const today = data[data.length - 1];
-
-  document.getElementById("avgValue").textContent = money(average);
-  document.getElementById("totalValue").textContent = money(total);
-  document.getElementById("totalDetail").textContent =
-    `${data.length}-day spend`;
-  document.getElementById("overValue").textContent =
-    `${daysOver} day${daysOver === 1 ? "" : "s"}`;
-  document.getElementById("todayValue").textContent = money(today.spent);
-  document.getElementById("todayDetail").textContent =
-    `${money(today.available)} available`;
-
   if (currentMode === "compound") {
-    document.getElementById("chartTitle").textContent =
-      "Compound spending";
-    document.getElementById("chartSubtitle").textContent =
-      `Unused ${money(dailyLimit)} daily allowance carries forward`;
     document.getElementById("legendLineText").textContent =
       "Available limit";
-
-    document.getElementById("secondaryLabel").textContent =
-      "CARRY LEFT";
-    document.getElementById("secondaryValue").textContent =
-      money(today.remaining);
-    document.getElementById("secondaryDetail").textContent =
-      "after latest day";
-
-    document.getElementById("overDetail").textContent =
-      "compound allowance";
   } else {
-    document.getElementById("chartTitle").textContent =
-      "Daily spending";
-    document.getElementById("chartSubtitle").textContent =
-      `Fixed ${money(dailyLimit)} allowance per day`;
     document.getElementById("legendLineText").textContent =
       "Daily limit";
-
-    document.getElementById("secondaryLabel").textContent =
-      "HIGHEST";
-    document.getElementById("secondaryValue").textContent =
-      money(highest);
-    document.getElementById("secondaryDetail").textContent =
-      "peak day";
-
-    document.getElementById("overDetail").textContent =
-      "daily allowance";
   }
 }
 
@@ -293,12 +238,21 @@ function drawChart() {
     return;
   }
 
-  const padding = {
-    top: 26,
-    right: 28,
-    bottom: 44,
-    left: 58
-  };
+  const compact = width <= 420;
+
+  const padding = compact
+    ? {
+        top: 12,
+        right: 10,
+        bottom: 24,
+        left: 12
+      }
+    : {
+        top: 26,
+        right: 28,
+        bottom: 44,
+        left: 58
+      };
 
   const graphWidth = Math.max(1, width - padding.left - padding.right);
   const graphHeight = Math.max(1, height - padding.top - padding.bottom);
@@ -331,12 +285,19 @@ function drawChart() {
     ctx.lineTo(width - padding.right, y);
     ctx.stroke();
 
+    if (compact) {
+      continue;
+    }
+
     ctx.fillStyle = "#717c8c";
     ctx.fillText(shortMoney(value), padding.left - 11, y);
   }
 
   const slotWidth = graphWidth / data.length;
   const barWidth = Math.max(8, Math.min(27, slotWidth * 0.38));
+  const labelStep = compact
+    ? Math.max(1, Math.ceil(data.length / 6))
+    : 1;
 
   data.forEach((day, index) => {
     const centerX =
@@ -387,14 +348,19 @@ function drawChart() {
     ctx.fill();
 
     ctx.fillStyle = "#737e8e";
-    ctx.font = "9px Inter, system-ui, sans-serif";
+    ctx.font = compact
+      ? "7px Inter, system-ui, sans-serif"
+      : "9px Inter, system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(
-      formatDay(day.date),
-      centerX,
-      height - padding.bottom + 12
-    );
+
+    if (!compact || index % labelStep === 0) {
+      ctx.fillText(
+        formatDay(day.date),
+        centerX,
+        height - padding.bottom + (compact ? 8 : 12)
+      );
+    }
 
     chartPoints.push({
       index,
@@ -472,14 +438,16 @@ function drawChart() {
       ? money(latest.available)
       : money(dailyLimit);
 
-  ctx.font = "9px Inter, system-ui, sans-serif";
+  ctx.font = compact
+    ? "8px Inter, system-ui, sans-serif"
+    : "9px Inter, system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
 
-  const labelWidth = ctx.measureText(limitLabel).width + 10;
-  const labelHeight = 18;
+  const labelWidth = ctx.measureText(limitLabel).width + (compact ? 8 : 10);
+  const labelHeight = compact ? 14 : 18;
   const labelX = width - padding.right;
-  const labelY = Math.max(padding.top, latestY - 23);
+  const labelY = Math.max(padding.top, latestY - (compact ? 18 : 23));
 
   ctx.fillStyle = "rgba(255,196,94,0.10)";
   roundedRect(
@@ -496,7 +464,7 @@ function drawChart() {
   ctx.fillText(
     limitLabel,
     labelX - 5,
-    labelY + 13
+    labelY + (compact ? 10 : 13)
   );
 
   // Hover guide.
@@ -614,6 +582,34 @@ async function startWindowDrag(event) {
     console.error("Could not start window drag:", error);
   }
 }
+
+async function startWindowResize(event) {
+  if (!isTauri || event.button !== 0) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  hoveredIndex = -1;
+  tooltip.classList.remove("visible");
+  drawChart();
+
+  try {
+    const direction = event.currentTarget.dataset.direction;
+    await window.__TAURI__.window
+      .getCurrentWindow()
+      .startResizeDragging(direction);
+  } catch (error) {
+    console.error("Could not start window resize:", error);
+  }
+}
+
+document
+  .querySelectorAll(".resize-handle")
+  .forEach((handle) =>
+    handle.addEventListener("mousedown", startWindowResize)
+  );
 
 chartCard.addEventListener("mousedown", startWindowDrag);
 
@@ -778,6 +774,7 @@ window.addEventListener("resize", () => {
 });
 
 async function init() {
+  document.documentElement.classList.toggle("tauri", isTauri);
   spendingData = sanitizeRows(MOCK_DATA);
 
   await loadConfig();
