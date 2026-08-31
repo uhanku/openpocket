@@ -2,6 +2,7 @@ mod openrouter;
 
 use serde::Serialize;
 use std::env;
+use tauri::Manager;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,7 +23,7 @@ fn configured_daily_limit() -> f64 {
         .ok()
         .and_then(|value| value.parse::<f64>().ok())
         .filter(|value| value.is_finite() && *value > 0.0)
-        .unwrap_or(2.0)
+        .unwrap_or(0.67)
 }
 
 fn configured_display_days() -> u32 {
@@ -69,9 +70,41 @@ async fn get_usage(days: Option<u32>) -> Result<Vec<openrouter::SpendDay>, Strin
     openrouter::fetch_daily_spend(&key, days).await
 }
 
+#[cfg(target_os = "windows")]
+fn configure_window_chrome(window: &tauri::WebviewWindow) {
+    use core::ffi::c_void;
+    use windows::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE,
+    };
+
+    let _ = window.set_shadow(false);
+
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+
+    let color = DWMWA_COLOR_NONE;
+
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_BORDER_COLOR,
+            &color as *const u32 as *const c_void,
+            core::mem::size_of::<u32>() as u32,
+        );
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                configure_window_chrome(&window);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_app_config,
             get_usage

@@ -38,13 +38,7 @@ body {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(
-      circle at 50% -180px,
-      rgba(67, 92, 145, 0.12),
-      transparent 460px
-    ),
-    var(--bg);
+  background: transparent;
   color: var(--text);
   font-family:
     Inter,
@@ -68,10 +62,21 @@ button {
 
 .chart-card {
   overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
   background:
+    radial-gradient(
+      circle at 50% -140px,
+      rgba(67, 92, 145, 0.16),
+      transparent 420px
+    ),
     linear-gradient(180deg, var(--card-top) 0%, var(--card) 25%, var(--card) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 16px;
+}
+
+.chart-card:active {
+  cursor: grabbing;
 }
 
 .chart-topbar {
@@ -85,6 +90,12 @@ button {
 
 .chart-heading {
   min-width: 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.chart-heading:active {
+  cursor: grabbing;
 }
 
 .heading-meta {

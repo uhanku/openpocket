@@ -62,7 +62,7 @@ Then edit `.env`:
 
 ```env
 OPENROUTER_MANAGEMENT_KEY=your_management_key_here
-DAILY_LIMIT=2.00
+DAILY_LIMIT=0.67
 DISPLAY_DAYS=14
 ```
 

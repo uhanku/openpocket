@@ -1,3 +1,4 @@
+(() => {
 const MOCK_DATA = [
   { date: "2026-08-15", spent: 1.20 },
   { date: "2026-08-16", spent: 0.75 },
@@ -16,7 +17,7 @@ const MOCK_DATA = [
 ];
 
 let spendingData = [...MOCK_DATA];
-let dailyLimit = 2.00;
+let dailyLimit = 0.67;
 let displayDays = 14;
 let currentMode = "daily";
 let chartPoints = [];
@@ -25,6 +26,7 @@ let hoveredIndex = -1;
 const canvas = document.getElementById("spendingChart");
 const ctx = canvas.getContext("2d");
 
+const chartCard = document.getElementById("chartCard");
 const tooltip = document.getElementById("tooltip");
 const emptyState = document.getElementById("emptyState");
 const dailyModeButton = document.getElementById("dailyMode");
@@ -591,6 +593,33 @@ function clearTooltip() {
   drawChart();
 }
 
+async function startWindowDrag(event) {
+  if (!isTauri || event.button !== 0) {
+    return;
+  }
+
+  if (event.target instanceof Element && event.target.closest("button")) {
+    return;
+  }
+
+  event.preventDefault();
+
+  hoveredIndex = -1;
+  tooltip.classList.remove("visible");
+  drawChart();
+
+  try {
+    await window.__TAURI__.window.getCurrentWindow().startDragging();
+  } catch (error) {
+    console.error("Could not start window drag:", error);
+  }
+}
+
+chartCard.addEventListener("mousedown", startWindowDrag);
+
+canvas.setAttribute("draggable", "false");
+chartCard.addEventListener("dragstart", (event) => event.preventDefault());
+
 canvas.addEventListener("mousemove", (event) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = event.clientX - rect.left;
@@ -759,3 +788,4 @@ async function init() {
 }
 
 init();
+})();

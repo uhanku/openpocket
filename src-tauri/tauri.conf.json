@@ -20,7 +20,8 @@
         "fullscreen": false,
         "maximized": false,
         "center": true,
-        "backgroundColor": "#070B12"
+        "decorations": false,
+        "transparent": true
       }
     ],
     "security": {
