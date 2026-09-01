@@ -42,6 +42,18 @@ const emptyState = document.getElementById("emptyState");
 const dailyModeButton = document.getElementById("dailyMode");
 const compoundModeButton = document.getElementById("compoundMode");
 const refreshButton = document.getElementById("refreshButton");
+const settingsButton = document.getElementById("settingsButton");
+const settingsModal = document.getElementById("settingsModal");
+const settingsKeyInput = document.getElementById("settingsKeyInput");
+const settingsLimitInput = document.getElementById("settingsLimitInput");
+const settingsKeyHint = document.getElementById("settingsKeyHint");
+const settingsStatus = document.getElementById("settingsStatus");
+const settingsSave = document.getElementById("settingsSave");
+const settingsCancel = document.getElementById("settingsCancel");
+const settingsClose = document.getElementById("settingsClose");
+const settingsClearKey = document.getElementById("settingsClearKey");
+const settingsResetLimit = document.getElementById("settingsResetLimit");
+const toggleKeyVisibility = document.getElementById("toggleKeyVisibility");
 
 const isTauri =
   Boolean(window.__TAURI__) &&
@@ -607,7 +619,10 @@ async function startWindowDrag(event) {
     return;
   }
 
-  if (event.target instanceof Element && event.target.closest("button")) {
+  if (
+    event.target instanceof Element &&
+    event.target.closest("button, input, select, textarea, [role=\"dialog\"]")
+  ) {
     return;
   }
 
@@ -719,29 +734,221 @@ function setMode(mode) {
 dailyModeButton.addEventListener("click", () => setMode("daily"));
 compoundModeButton.addEventListener("click", () => setMode("compound"));
 
+// ── Settings modal ──
+let lastConfig = null;
+
+function updateSettingsHint(config) {
+  if (!settingsKeyHint || !config) return;
+  if (config.keySource === "env") {
+    settingsKeyHint.textContent =
+      "Key is set via environment variable (env override) — stored key is ignored.";
+  } else if (config.keySource === "stored" || config.storedHasKey) {
+    settingsKeyHint.textContent = "Key saved locally (stored). Leave blank to keep it.";
+  } else {
+    settingsKeyHint.textContent = "No key saved. Paste your OpenRouter Management Key.";
+  }
+}
+
+function openSettings() {
+  if (!settingsModal) return;
+  if (lastConfig) {
+    // Prefill limit from effective config; key input stays blank (never echo back).
+    settingsLimitInput.value =
+      Number.isFinite(Number(lastConfig.dailyLimit)) ? String(lastConfig.dailyLimit) : "0.67";
+    updateSettingsHint(lastConfig);
+  }
+  settingsKeyInput.value = "";
+  settingsKeyInput.type = "password";
+  if (toggleKeyVisibility) toggleKeyVisibility.textContent = "Show";
+  if (settingsStatus) {
+    settingsStatus.textContent = "";
+    settingsStatus.className = "settings-status";
+  }
+  settingsModal.hidden = false;
+  settingsModal.setAttribute("aria-hidden", "false");
+  // Focus key input after modal is visible
+  setTimeout(() => settingsKeyInput.focus(), 0);
+}
+
+function closeSettings() {
+  if (!settingsModal) return;
+  settingsModal.hidden = true;
+  settingsModal.setAttribute("aria-hidden", "true");
+  if (settingsStatus) {
+    settingsStatus.textContent = "";
+    settingsStatus.className = "settings-status";
+  }
+}
+
+function setSettingsStatus(msg, kind) {
+  if (!settingsStatus) return;
+  settingsStatus.textContent = msg;
+  settingsStatus.className = "settings-status" + (kind ? " " + kind : "");
+}
+
+if (settingsButton) settingsButton.addEventListener("click", openSettings);
+if (settingsClose) settingsClose.addEventListener("click", closeSettings);
+if (settingsCancel) settingsCancel.addEventListener("click", closeSettings);
+if (settingsModal) {
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target.matches("[data-close-settings]")) closeSettings();
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && settingsModal && !settingsModal.hidden) closeSettings();
+});
+if (toggleKeyVisibility && settingsKeyInput) {
+  toggleKeyVisibility.addEventListener("click", () => {
+    const isPw = settingsKeyInput.type === "password";
+    settingsKeyInput.type = isPw ? "text" : "password";
+    toggleKeyVisibility.textContent = isPw ? "Hide" : "Show";
+    toggleKeyVisibility.setAttribute("aria-label", isPw ? "Hide key" : "Show key");
+  });
+}
+if (settingsClearKey) {
+  settingsClearKey.addEventListener("click", async () => {
+    if (!isTauri) {
+      setSettingsStatus("Not running in Tauri — nothing to clear.", "error");
+      return;
+    }
+    settingsClearKey.disabled = true;
+    try {
+      const config = await window.__TAURI__.core.invoke("save_settings", {
+        key: "",
+        daily_limit: null,
+      });
+      lastConfig = config;
+      const v = Number(config?.dailyLimit);
+      if (Number.isFinite(v) && v > 0) dailyLimit = v;
+      updateSettingsHint(config);
+      setConnectionStatus(config.hasApiKey ? "live" : "demo", config.hasApiKey ? "LIVE" : "DEMO");
+      setSettingsStatus("Key cleared. Paste a new key and Save.", "success");
+      await refreshUsage();
+    } catch (err) {
+      setSettingsStatus(String(err), "error");
+    } finally {
+      settingsClearKey.disabled = false;
+    }
+  });
+}
+if (settingsResetLimit) {
+  settingsResetLimit.addEventListener("click", async () => {
+    if (!isTauri) {
+      settingsLimitInput.value = "0.67";
+      setSettingsStatus("Reset to default (not saved — click Save).", "");
+      return;
+    }
+    settingsResetLimit.disabled = true;
+    try {
+      const config = await window.__TAURI__.core.invoke("clear_daily_limit");
+      lastConfig = config;
+      const v = Number(config?.dailyLimit);
+      if (Number.isFinite(v) && v > 0) dailyLimit = v;
+      settingsLimitInput.value = String(v);
+      updateMeta();
+      drawChart();
+      updateSettingsHint(config);
+      setSettingsStatus("Daily limit reset to default.", "success");
+    } catch (err) {
+      setSettingsStatus(String(err), "error");
+    } finally {
+      settingsResetLimit.disabled = false;
+    }
+  });
+}
+if (settingsSave) {
+  settingsSave.addEventListener("click", async () => {
+    if (!isTauri) {
+      const v = Number(settingsLimitInput.value);
+      if (Number.isFinite(v) && v > 0) {
+        dailyLimit = v;
+        updateMeta();
+        drawChart();
+        setSettingsStatus("Saved (browser preview only).", "success");
+        setTimeout(closeSettings, 700);
+      } else {
+        setSettingsStatus("Daily limit must be a positive number.", "error");
+      }
+      return;
+    }
+    const rawKey = settingsKeyInput.value.trim();
+    const rawLimit = settingsLimitInput.value.trim();
+    // Empty key -> null means "keep existing stored key"
+    const keyToSend = rawKey === "" ? null : rawKey;
+    let limitToSend = null;
+    if (rawLimit !== "") {
+      const n = Number(rawLimit);
+      if (!Number.isFinite(n) || n <= 0) {
+        setSettingsStatus("Daily limit must be a positive number.", "error");
+        return;
+      }
+      limitToSend = n;
+    } else {
+      // Empty limit -> keep existing? But UX expects saving empty means keep.
+      limitToSend = null;
+    }
+
+    settingsSave.disabled = true;
+    settingsSave.textContent = "Saving…";
+    try {
+      const config = await window.__TAURI__.core.invoke("save_settings", {
+        key: keyToSend,
+        daily_limit: limitToSend,
+      });
+      lastConfig = config;
+      const v = Number(config?.dailyLimit);
+      if (Number.isFinite(v) && v > 0) dailyLimit = v;
+      updateMeta();
+      drawChart();
+      updateSettingsHint(config);
+      setSettingsStatus(
+        keyToSend === null && limitToSend === null
+          ? "No changes to save."
+          : "Saved. Refreshing data…",
+        "success"
+      );
+      await refreshUsage();
+      if (config?.hasApiKey) {
+        setTimeout(closeSettings, 600);
+      }
+    } catch (err) {
+      setSettingsStatus(String(err), "error");
+    } finally {
+      settingsSave.disabled = false;
+      settingsSave.textContent = "Save";
+    }
+  });
+}
+
 async function loadConfig() {
   if (!isTauri) {
-    return;
+    return null;
   }
 
   try {
-    const config =
-      await window.__TAURI__.core.invoke("get_app_config");
+    const config = await window.__TAURI__.core.invoke("get_app_config");
+    lastConfig = config;
 
     const configuredLimit = Number(config?.dailyLimit);
-
-    if (
-      Number.isFinite(configuredLimit) &&
-      configuredLimit > 0
-    ) {
+    if (Number.isFinite(configuredLimit) && configuredLimit > 0) {
       dailyLimit = configuredLimit;
     }
 
+    if (settingsLimitInput) {
+      settingsLimitInput.value = String(dailyLimit);
+    }
+    updateSettingsHint(config);
+
     if (!config?.hasApiKey) {
       setConnectionStatus("demo", "DEMO");
+    } else {
+      // hasApiKey true: actual LIVE/ERROR will be set by refreshUsage
     }
+
+    return config;
   } catch (error) {
     console.error("Could not load app config:", error);
+    return null;
   }
 }
 
@@ -776,6 +983,12 @@ async function refreshUsage() {
     spendingData = sanitizeRows(MOCK_DATA);
 
     const message = String(error || "");
+    // Surface the actual backend error in the badge tooltip and in the settings modal if open
+    const statusNode = document.getElementById("connectionStatus");
+    if (statusNode) statusNode.title = message;
+    if (settingsStatus && !settingsModal.hidden) {
+      setSettingsStatus(message, "error");
+    }
 
     if (
       message.includes("OPENROUTER_MANAGEMENT_KEY") ||
@@ -796,6 +1009,29 @@ async function refreshUsage() {
 
 refreshButton.addEventListener("click", refreshUsage);
 
+// Tray -> Refresh / Settings: backend emits events.
+if (
+  isTauri &&
+  window.__TAURI__.event &&
+  typeof window.__TAURI__.event.listen === "function"
+) {
+  window.__TAURI__.event
+    .listen("usage-refresh", () => {
+      refreshUsage();
+    })
+    .catch((error) => {
+      console.error("Could not listen for tray refresh:", error);
+    });
+
+  window.__TAURI__.event
+    .listen("open-settings", () => {
+      openSettings();
+    })
+    .catch((error) => {
+      console.error("Could not listen for open-settings:", error);
+    });
+}
+
 window.addEventListener("resize", () => {
   tooltip.classList.remove("visible");
   hoveredIndex = -1;
@@ -806,11 +1042,16 @@ async function init() {
   document.documentElement.classList.toggle("tauri", isTauri);
   spendingData = sanitizeRows(MOCK_DATA);
 
-  await loadConfig();
+  const config = await loadConfig();
   await refreshUsage();
 
   updateMeta();
   drawChart();
+
+  // Auto-open settings on first run if no key is configured (discoverability).
+  if (config && !config.hasApiKey) {
+    openSettings();
+  }
 }
 
 init();
