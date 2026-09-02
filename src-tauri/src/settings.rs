@@ -79,10 +79,35 @@ pub fn effective_daily_limit(app: &AppHandle) -> f64 {
     0.67
 }
 
+fn is_valid_env_key(raw: &str) -> bool {
+    let t = raw.trim();
+    if t.is_empty() || t.len() < 10 {
+        return false;
+    }
+    let lower = t.to_ascii_lowercase();
+    if lower.contains("your_key")
+        || lower.contains("your_management")
+        || lower.contains("example")
+        || lower.contains("placeholder")
+    {
+        return false;
+    }
+    if lower == "sk-or-v1-your_key_here" || lower == "your_management_key_here" {
+        return false;
+    }
+    if !t.starts_with("sk-") {
+        return false;
+    }
+    true
+}
+
 pub fn effective_key(app: &AppHandle) -> Option<String> {
-    // Env var precedence
+    // Env var precedence, but ignore placeholder/invalid values (e.g. sk-or-v1-YOUR_KEY_HERE)
     for var in ["OPENROUTER_MANAGEMENT_KEY", "OPENROUTER_API_KEY"] {
         if let Ok(raw) = std::env::var(var) {
+            if !is_valid_env_key(&raw) {
+                continue;
+            }
             let t = raw.trim().to_owned();
             if !t.is_empty() {
                 return Some(t);

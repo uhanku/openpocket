@@ -23,10 +23,43 @@ struct AppConfig {
     stored_has_key: bool,
 }
 
+fn is_valid_env_key(raw: &str) -> bool {
+    let t = raw.trim();
+    if t.is_empty() || t.len() < 10 {
+        return false;
+    }
+    let lower = t.to_ascii_lowercase();
+    // Reject obvious placeholder / example values that would cause 401
+    if lower.contains("your_key") || lower.contains("your_management") || lower.contains("example") || lower.contains("placeholder") {
+        return false;
+    }
+    if lower == "sk-or-v1-your_key_here" || lower == "your_management_key_here" {
+        return false;
+    }
+    // OpenRouter keys are `sk-or-v1-…` (or at least `sk-…`); reject anything else
+    if !t.starts_with("sk-") {
+        return false;
+    }
+    true
+}
+
 fn load_dotenv() {
     // Useful during development. Packaged applications can instead receive
     // OPENROUTER_MANAGEMENT_KEY through the process environment.
+    // First try standard dotenv (current dir). It does NOT overwrite existing vars,
+    // so a placeholder system env would still win — we handle that via is_valid_env_key.
     let _ = dotenvy::dotenv();
+    // Also try loading .env next to the executable (useful for portable installs
+    // where the exe lives in D:\current\apps\openpocket and the .env is alongside).
+    // This is a no-op if the file doesn't exist and does not overwrite existing vars.
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let path = dir.join(".env");
+            if path.exists() {
+                let _ = dotenvy::from_path(path);
+            }
+        }
+    }
 }
 
 fn debug_log(app: Option<&tauri::AppHandle>, msg: &str) {
@@ -66,6 +99,19 @@ fn env_daily_limit() -> Option<f64> {
 fn env_key() -> Option<String> {
     for var in ["OPENROUTER_MANAGEMENT_KEY", "OPENROUTER_API_KEY"] {
         if let Ok(raw) = env::var(var) {
+            if !is_valid_env_key(&raw) {
+                // Log invalid/placeholder env so user can diagnose 401 quickly
+                debug_log(
+                    None,
+                    &format!(
+                        "env_key: ignoring invalid placeholder for {} (len={}, prefix={:?})",
+                        var,
+                        raw.trim().len(),
+                        raw.trim().chars().take(8).collect::<String>()
+                    ),
+                );
+                continue;
+            }
             let t = raw.trim().to_owned();
             if !t.is_empty() {
                 return Some(t);
@@ -255,6 +301,14 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             if let Some(window) = app.get_webview_window("main") {
                 configure_window_chrome(&window);
+            }
+            // Hide taskbar icon in release builds — app remains accessible via tray only.
+            // `tauri dev` (debug) keeps the taskbar button for easier debugging.
+            #[cfg(target_os = "windows")]
+            if !cfg!(debug_assertions) {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_skip_taskbar(true);
+                }
             }
 
             // Enable autostart on first run (and every run — idempotent).

@@ -269,7 +269,43 @@ function niceAxisMax(value) {
   return nice * magnitude;
 }
 
+function niceCenteredAxisMax(value) {
+  const safe = Math.max(0.5, value);
+
+  if (safe <= 2) {
+    return Math.ceil(safe * 2) / 2;
+  }
+
+  if (safe <= 30) {
+    return Math.ceil(safe);
+  }
+
+  const magnitude = 10 ** Math.floor(Math.log10(safe));
+  const normalized = safe / magnitude;
+
+  let nice;
+
+  if (normalized <= 1) {
+    nice = 1;
+  } else if (normalized <= 2) {
+    nice = 2;
+  } else if (normalized <= 5) {
+    nice = 5;
+  } else {
+    nice = 10;
+  }
+
+  return nice * magnitude;
+}
+
+function computeAxisMax(maxVisibleValue, dailyLimit) {
+  const centeredTarget = dailyLimit * 2;
+  const needed = Math.max(centeredTarget, maxVisibleValue * 1.18, 0.5);
+  return niceCenteredAxisMax(needed);
+}
+
 function chooseTickStep(axisMax) {
+  if (axisMax <= 2) return 0.5;
   if (axisMax <= 5) return 1;
   if (axisMax <= 10) return 2;
   if (axisMax <= 25) return 5;
@@ -315,7 +351,7 @@ function drawChart() {
     ...data.map((day) => Math.max(day.spent, day.available))
   );
 
-  const axisMax = niceAxisMax(maxVisibleValue * 1.18);
+  const axisMax = computeAxisMax(maxVisibleValue, dailyLimit);
   const tickStep = chooseTickStep(axisMax);
 
   const yFor = (value) =>
